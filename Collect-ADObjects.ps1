@@ -22,7 +22,8 @@ function Collect-ADObjects {
 		[switch]$Enabled,
         [switch]$Disabled,
 		[string]$Identity,
-		[string]$LDAP
+		[string]$LDAP,
+		[switch]$Convert
     )
 	
 	$root = if ($Server) {
@@ -100,6 +101,20 @@ function Collect-ADObjects {
                 $properties[$prop] = $result.Properties[$prop][0]
             }
         }
+		
+		# Convert properties if the -Convert switch is specified
+        if ($Convert) {
+            if ($properties.ContainsKey('objectsid')) {
+                $properties['objectsid'] = GetSID-FromBytes -sidBytes $properties['objectsid']
+            }
+            $timestampProperties = @('pwdlastset', 'lastlogon', 'lastlogontimestamp', 'badpasswordtime')
+            foreach ($timestampProperty in $timestampProperties) {
+                if ($properties.ContainsKey($timestampProperty)) {
+                    $properties[$timestampProperty] = Convert-LdapTimestamp -timestamp $properties[$timestampProperty]
+                }
+            }
+        }
+		
 		$properties['domain'] = $Domain
         $records.Add([PSCustomObject]$properties)
     }
@@ -255,3 +270,25 @@ namespace DataCollector
     }
 }
 "@
+
+function Convert-LdapTimestamp {
+    param([string]$timestamp)
+    if ($timestamp -eq "0" -OR $timestamp -eq "9223372036854775807") {
+        return "NEVER"
+    }
+    else {
+        [datetime]$epoch = "1/1/1601"
+        $date = $epoch.AddTicks($timestamp)
+        return $date
+    }
+}
+
+function GetSID-FromBytes {
+	param (
+        [byte[]]$sidBytes
+    )
+	
+	$sid = New-Object System.Security.Principal.SecurityIdentifier($sidBytes, 0)
+	$stringSid = $sid.Value
+	return $stringSid
+}
