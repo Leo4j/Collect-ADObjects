@@ -13,7 +13,7 @@ Load the script first
 iex(new-object net.webclient).downloadstring('https://raw.githubusercontent.com/Leo4j/Collect-ADObjects/main/Collect-ADObjects.ps1')
 ```
 
-You can use the function to collect everything
+Collect everything
 
 ```
 Collect-ADObjects # collects everything
