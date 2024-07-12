@@ -7,7 +7,7 @@ A function to collect Active Directory Objects
 
 ## Usage
 
-Load the function first
+Load the script first
 
 ```
 iex(new-object net.webclient).downloadstring('https://raw.githubusercontent.com/Leo4j/Collect-ADObjects/main/Collect-ADObjects.ps1')
