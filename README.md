@@ -19,7 +19,7 @@ You can use the function to collect everything
 Collect-ADObjects # collects everything
 ```
 
-Or pre-defined objects categories: Users, Computers, Groups, GPOs, DomainControllers, OUs, Else, Printers, DomainPolicy, OtherPolicies, rIDManagers
+Or pre-defined objects categories: Users, Computers, Groups, GPOs, DomainControllers, OUs, Printers, DomainPolicy, OtherPolicies, rIDManagers, Else
 ```
 Collect-ADObjects -Collect Users
 ```
