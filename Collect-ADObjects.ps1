@@ -1,3 +1,124 @@
+function Collect-ADObjects {
+
+    <#
+
+    .SYNOPSIS
+    Collect-ADObjects | Author: Rob LP (@L3o4j)
+    https://github.com/Leo4j/Collect-ADObjects
+
+    .DESCRIPTION
+    Collect Active Directory Objects
+
+    #>
+
+    param (
+        [string]$Domain = [System.DirectoryServices.ActiveDirectory.Domain]::GetCurrentDomain().Name,
+        [string]$Server = $null,
+        [int]$numOfThreads = 4,
+		[Parameter(Mandatory = $false)]
+        [ValidateSet("Users", "Computers", "Groups", "GPOs", "DomainControllers", "OUs", "Else", "Printers", "DomainPolicy", "OtherPolicies", "rIDManagers")]
+        [string[]]$Collect = @("Users", "Computers", "Groups", "GPOs", "DomainControllers", "OUs", "Else", "Printers", "DomainPolicy", "OtherPolicies", "rIDManagers"),
+		[string[]]$Property,
+		[switch]$Enabled,
+        [switch]$Disabled,
+		[string]$Identity,
+		[string]$LDAP
+    )
+	
+	$root = if ($Server) {
+        "LDAP://$Server"
+    } else {
+        "LDAP://$Domain"
+    }
+	
+	$rootDirectoryEntry = New-Object System.DirectoryServices.DirectoryEntry($root)
+    $searcher = New-Object System.DirectoryServices.DirectorySearcher($rootDirectoryEntry)
+	
+	# Construct the LDAP filter based on the -Collect parameter
+    $filters = @()
+	if ($Identity) {
+        $filters += "(samAccountName=$Identity)"
+    }
+	elseif ($LDAP) {
+        $filters += "($LDAP)"
+    }
+	else{
+		foreach ($item in $Collect) {
+			switch ($item) {
+				"Users" { 
+					$userFilter = "(objectCategory=person)"
+					if ($Enabled) {
+						$userFilter = "(&" + $userFilter + "(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
+					} elseif ($Disabled) {
+						$userFilter = "(&" + $userFilter + "(userAccountControl:1.2.840.113556.1.4.803:=2))"
+					}
+					$filters += $userFilter
+				}
+				"Computers" { 
+					$computerFilter = "(objectCategory=computer)"
+					if ($Enabled) {
+						$computerFilter = "(&" + $computerFilter + "(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
+					} elseif ($Disabled) {
+						$computerFilter = "(&" + $computerFilter + "(userAccountControl:1.2.840.113556.1.4.803:=2))"
+					}
+					$filters += $computerFilter
+				}
+				"Groups" { $filters += "(objectCategory=group)" }
+				"DomainControllers" { $filters += "(&(objectCategory=computer)(userAccountControl:1.2.840.113556.1.4.803:=8192))" }
+				"OUs" { $filters += "(objectCategory=organizationalUnit)" }
+				"GPOs" { $filters += "(objectClass=groupPolicyContainer)" }
+				"Else" { $filters += "(&(!(objectCategory=person))(!(objectCategory=computer))(!(objectCategory=group))(!(objectCategory=organizationalUnit))(!(objectClass=groupPolicyContainer)))" }
+				"Printers" { $filters += "(objectCategory=printQueue)" }
+                "DomainPolicy" { $filters += "(objectClass=domainDNS)" }
+                "OtherPolicies" { $filters += "(cn=Policies*)" }
+				"rIDManagers" { $filters += "(objectClass=rIDManager)" }
+			}
+		}
+	}
+    # Combine the filters with an OR if multiple categories are specified
+    $searcher.Filter = if ($filters.Count -gt 1) { "(|" + ($filters -join "") + ")" } else { $filters[0] }
+	
+    # Specify the properties to load if provided
+    if ($Property) {
+        $Property += "domain"  # Ensure 'domain' is always collected
+        foreach ($prop in $Property) {
+            $null = $searcher.PropertiesToLoad.Add($prop)
+        }
+    }
+	
+	$searcher.PageSize = 1000
+	$searcher.SearchScope = [System.DirectoryServices.SearchScope]::Subtree
+    $results = $searcher.FindAll()
+
+    [System.Collections.Generic.List[PSObject]]$records = New-Object 'System.Collections.Generic.List[PSObject]'
+    foreach ($result in $results) {
+        $properties = @{}
+        foreach ($prop in $result.Properties.PropertyNames) {
+            if ($result.Properties[$prop].Count -gt 1) {
+                $properties[$prop] = $result.Properties[$prop]
+            } else {
+                $properties[$prop] = $result.Properties[$prop][0]
+            }
+        }
+		$properties['domain'] = $Domain
+        $records.Add([PSCustomObject]$properties)
+    }
+
+    # Convert the records to Dictionary<string, object> for the C# code
+    [System.Collections.Generic.List[System.Collections.Generic.Dictionary[string, object]]]$recordsArray = New-Object 'System.Collections.Generic.List[System.Collections.Generic.Dictionary[string, object]]'
+    foreach ($record in $records) {
+        $dict = New-Object 'System.Collections.Generic.Dictionary[String, Object]'
+        foreach ($prop in $record.PSObject.Properties) {
+            $dict.Add($prop.Name, $prop.Value)
+        }
+        $recordsArray.Add($dict)
+    }
+
+    $CollectedResults = [DataCollector.ProcessorClass]::ProcessRecords($recordsArray, $numOfThreads)
+    
+    return $CollectedResults
+}
+
 # Load the necessary assemblies
 Add-Type -AssemblyName System.DirectoryServices.AccountManagement
 Add-Type -AssemblyName System.DirectoryServices
@@ -134,113 +255,3 @@ namespace DataCollector
     }
 }
 "@
-
-# Function to retrieve all AD objects and their properties
-function Collect-ADObjects {
-    param (
-        [string]$Domain = [System.DirectoryServices.ActiveDirectory.Domain]::GetCurrentDomain().Name,
-        [string]$Server = $null,
-        [int]$numOfThreads = 4,
-		[Parameter(Mandatory = $false)]
-        [ValidateSet("Users", "Computers", "Groups", "GPOs", "DomainControllers", "OUs", "Else", "Printers", "DomainPolicy", "OtherPolicies", "rIDManagers")]
-        [string[]]$Collect = @("Users", "Computers", "Groups", "GPOs", "DomainControllers", "OUs", "Else", "Printers", "DomainPolicy", "OtherPolicies", "rIDManagers"),
-		[string[]]$Property,
-		[switch]$Enabled,
-        [switch]$Disabled,
-		[string]$Identity,
-		[string]$LDAP
-    )
-	
-	$root = if ($Server) {
-        "LDAP://$Server"
-    } else {
-        "LDAP://$Domain"
-    }
-	
-	$rootDirectoryEntry = New-Object System.DirectoryServices.DirectoryEntry($root)
-    $searcher = New-Object System.DirectoryServices.DirectorySearcher($rootDirectoryEntry)
-	
-	# Construct the LDAP filter based on the -Collect parameter
-    $filters = @()
-	if ($Identity) {
-        $filters += "(samAccountName=$Identity)"
-    }
-	elseif ($LDAP) {
-        $filters += "($LDAP)"
-    }
-	else{
-		foreach ($item in $Collect) {
-			switch ($item) {
-				"Users" { 
-					$userFilter = "(objectCategory=person)"
-					if ($Enabled) {
-						$userFilter = "(&" + $userFilter + "(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
-					} elseif ($Disabled) {
-						$userFilter = "(&" + $userFilter + "(userAccountControl:1.2.840.113556.1.4.803:=2))"
-					}
-					$filters += $userFilter
-				}
-				"Computers" { 
-					$computerFilter = "(objectCategory=computer)"
-					if ($Enabled) {
-						$computerFilter = "(&" + $computerFilter + "(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
-					} elseif ($Disabled) {
-						$computerFilter = "(&" + $computerFilter + "(userAccountControl:1.2.840.113556.1.4.803:=2))"
-					}
-					$filters += $computerFilter
-				}
-				"Groups" { $filters += "(objectCategory=group)" }
-				"DomainControllers" { $filters += "(&(objectCategory=computer)(userAccountControl:1.2.840.113556.1.4.803:=8192))" }
-				"OUs" { $filters += "(objectCategory=organizationalUnit)" }
-				"GPOs" { $filters += "(objectClass=groupPolicyContainer)" }
-				"Else" { $filters += "(&(!(objectCategory=person))(!(objectCategory=computer))(!(objectCategory=group))(!(objectCategory=organizationalUnit))(!(objectClass=groupPolicyContainer)))" }
-				"Printers" { $filters += "(objectCategory=printQueue)" }
-                "DomainPolicy" { $filters += "(objectClass=domainDNS)" }
-                "OtherPolicies" { $filters += "(cn=Policies*)" }
-				"rIDManagers" { $filters += "(objectClass=rIDManager)" }
-			}
-		}
-	}
-    # Combine the filters with an OR if multiple categories are specified
-    $searcher.Filter = if ($filters.Count -gt 1) { "(|" + ($filters -join "") + ")" } else { $filters[0] }
-	
-    # Specify the properties to load if provided
-    if ($Property) {
-        $Property += "domain"  # Ensure 'domain' is always collected
-        foreach ($prop in $Property) {
-            $null = $searcher.PropertiesToLoad.Add($prop)
-        }
-    }
-	
-	$searcher.PageSize = 1000
-	$searcher.SearchScope = [System.DirectoryServices.SearchScope]::Subtree
-    $results = $searcher.FindAll()
-
-    [System.Collections.Generic.List[PSObject]]$records = New-Object 'System.Collections.Generic.List[PSObject]'
-    foreach ($result in $results) {
-        $properties = @{}
-        foreach ($prop in $result.Properties.PropertyNames) {
-            if ($result.Properties[$prop].Count -gt 1) {
-                $properties[$prop] = $result.Properties[$prop]
-            } else {
-                $properties[$prop] = $result.Properties[$prop][0]
-            }
-        }
-		$properties['domain'] = $Domain
-        $records.Add([PSCustomObject]$properties)
-    }
-
-    # Convert the records to Dictionary<string, object> for the C# code
-    [System.Collections.Generic.List[System.Collections.Generic.Dictionary[string, object]]]$recordsArray = New-Object 'System.Collections.Generic.List[System.Collections.Generic.Dictionary[string, object]]'
-    foreach ($record in $records) {
-        $dict = New-Object 'System.Collections.Generic.Dictionary[String, Object]'
-        foreach ($prop in $record.PSObject.Properties) {
-            $dict.Add($prop.Name, $prop.Value)
-        }
-        $recordsArray.Add($dict)
-    }
-
-    $CollectedResults = [DataCollector.ProcessorClass]::ProcessRecords($recordsArray, $numOfThreads)
-    
-    return $CollectedResults
-}
