@@ -16,7 +16,7 @@ iex(new-object net.webclient).downloadstring('https://raw.githubusercontent.com/
 Collect everything
 
 ```
-Collect-ADObjects # collects everything
+Collect-ADObjects
 ```
 
 Or pre-defined objects categories: Users, Computers, Groups, GPOs, DomainControllers, OUs, Printers, DomainPolicy, OtherPolicies, rIDManagers, Else
