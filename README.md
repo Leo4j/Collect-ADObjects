@@ -2,6 +2,9 @@
 
 A function to collect Active Directory Objects
 
+![image](https://github.com/user-attachments/assets/a172dc23-ce96-48ff-b4a5-339800ffdb3c)
+
+
 ## Usage
 
 Load the function first
@@ -40,6 +43,15 @@ Collect-ADObjects -Collect Users -Enabled -Property samaccountname
 ```
 ```
 Collect-ADObjects -Collect Users -Enabled -Property samaccountname,memberof
+```
+
+Use the -Convert switch to convert the objectsid,pwdlastset,lastlogon,lastlogontimestamp,badpasswordtime properties to a readable format
+
+```
+Collect-ADObjects -Convert
+```
+```
+Collect-ADObjects -Convert -Property pwdlastset,lastlogon,lastlogontimestamp,badpasswordtime,objectsid,samaccountname
 ```
 
 You can specify a domain to collect for, and a DC to query
