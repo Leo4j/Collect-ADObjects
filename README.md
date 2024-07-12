@@ -1,6 +1,6 @@
 # Collect-ADObjects
 
-A function to collect Active Directory Objects
+A script to collect Active Directory Objects
 
 ![image](https://github.com/user-attachments/assets/a172dc23-ce96-48ff-b4a5-339800ffdb3c)
 
@@ -54,7 +54,7 @@ Collect-ADObjects -Convert
 Collect-ADObjects -Convert -Property pwdlastset,lastlogon,lastlogontimestamp,badpasswordtime,objectsid,samaccountname
 ```
 
-You can specify a domain to collect for, and a DC to query
+You can specify a domain, and a DC to query
 
 ```
 Collect-ADObjects -Collect Users -Enabled -Domain domain.local -Server DC.domain.local
