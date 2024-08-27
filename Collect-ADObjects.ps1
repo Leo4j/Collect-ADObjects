@@ -116,6 +116,9 @@ function Collect-ADObjects {
             if ($properties.ContainsKey('userpassword')) {
                 $properties['userpassword'] = $([System.Text.Encoding]::ASCII.GetString($($properties['userpassword'])))
             }
+	    if ($properties.ContainsKey('unixUserPassword')) {
+                $properties['unixUserPassword'] = $([System.Text.Encoding]::ASCII.GetString($($properties['unixUserPassword'])))
+            }
 	    if ($properties.ContainsKey('objectguid')) {
                 $properties['objectguid'] = ([guid]::New(([string]::Join('', ($properties['objectguid'] | ForEach-Object { "{0:X2}" -f $_ }))[0..7] -join '') + "-" + 
                                               ([string]::Join('', ($properties['objectguid'] | ForEach-Object { "{0:X2}" -f $_ }))[8..11] -join '') + "-" +
