@@ -113,6 +113,24 @@ function Collect-ADObjects {
                     $properties[$timestampProperty] = Convert-LdapTimestamp -timestamp $properties[$timestampProperty]
                 }
             }
+            if ($properties.ContainsKey('userpassword')) {
+                $properties['userpassword'] = $([System.Text.Encoding]::ASCII.GetString($($properties['userpassword'])))
+            }
+	    if ($properties.ContainsKey('objectguid')) {
+                $properties['objectguid'] = ([guid]::New(([string]::Join('', ($properties['objectguid'] | ForEach-Object { "{0:X2}" -f $_ }))[0..7] -join '') + "-" + 
+                                              ([string]::Join('', ($properties['objectguid'] | ForEach-Object { "{0:X2}" -f $_ }))[8..11] -join '') + "-" +
+                                              ([string]::Join('', ($properties['objectguid'] | ForEach-Object { "{0:X2}" -f $_ }))[12..15] -join '') + "-" +
+                                              ([string]::Join('', ($properties['objectguid'] | ForEach-Object { "{0:X2}" -f $_ }))[16..19] -join '') + "-" +
+                                              ([string]::Join('', ($properties['objectguid'] | ForEach-Object { "{0:X2}" -f $_ }))[20..31] -join ''))).Guid
+            }
+	    if ($properties.ContainsKey('samaccounttype')) {
+                $properties['samaccounttype'] = switch ($($properties['samaccounttype'])) {
+					805306368 { "User" }
+					805306369 { "Computer" }
+					805306370 { "Trust Account" }
+					default { "Unknown" }
+				}
+            }
         }
 		
 		$properties['domain'] = $Domain
