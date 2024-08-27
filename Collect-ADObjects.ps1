@@ -107,7 +107,7 @@ function Collect-ADObjects {
             if ($properties.ContainsKey('objectsid')) {
                 $properties['objectsid'] = GetSID-FromBytes -sidBytes $properties['objectsid']
             }
-            $timestampProperties = @('pwdlastset', 'lastlogon', 'lastlogontimestamp', 'badpasswordtime')
+            $timestampProperties = @('pwdlastset', 'lastlogon', 'lastlogontimestamp', 'badpasswordtime', 'accountexpires')
             foreach ($timestampProperty in $timestampProperties) {
                 if ($properties.ContainsKey($timestampProperty)) {
                     $properties[$timestampProperty] = Convert-LdapTimestamp -timestamp $properties[$timestampProperty]
