@@ -94,8 +94,14 @@ function Collect-ADObjects {
     [System.Collections.Generic.List[PSObject]]$records = New-Object 'System.Collections.Generic.List[PSObject]'
     foreach ($result in $results) {
         $properties = @{}
+		if ($Property) {
+			foreach ($prop in $Property) {
+				$properties[$prop] = $null
+			}
+		}
         foreach ($prop in $result.Properties.PropertyNames) {
-            if ($result.Properties[$prop].Count -gt 1) {
+            if ($prop -eq "adspath") { continue }  # skip ADSPath
+			if ($result.Properties[$prop].Count -gt 1) {
                 $properties[$prop] = $result.Properties[$prop]
             } else {
                 $properties[$prop] = $result.Properties[$prop][0]
